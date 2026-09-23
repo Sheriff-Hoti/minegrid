@@ -1,73 +1,22 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/gdamore/tcell/v3"
 	"github.com/gdamore/tcell/v3/color"
 )
 
-func drawText(s tcell.Screen, x1, y1, x2, y2 int, style tcell.Style, text string) {
-	row := y1
-	col := x1
-	var width int
-	for text != "" {
-		text, width = s.Put(col, row, text, style)
-		col += width
-		if col >= x2 {
-			row++
-			col = x1
-		}
-		if row > y2 {
-			break
-		}
-		if width == 0 {
-			// incomplete grapheme at end of string
-			break
-		}
-	}
-}
+type Difficulty struct{ W, H, Mines int }
 
-func drawBox(s tcell.Screen, x1, y1, x2, y2 int, style tcell.Style, text string) {
-	if y2 < y1 {
-		y1, y2 = y2, y1
-	}
-	if x2 < x1 {
-		x1, x2 = x2, x1
-	}
-
-	// Fill background
-	for row := y1; row <= y2; row++ {
-		for col := x1; col <= x2; col++ {
-			s.Put(col, row, " ", style)
-		}
-	}
-
-	// Draw borders
-	for col := x1; col <= x2; col++ {
-		s.Put(col, y1, string(tcell.RuneHLine), style)
-		s.Put(col, y2, string(tcell.RuneHLine), style)
-	}
-	for row := y1 + 1; row < y2; row++ {
-		s.Put(x1, row, string(tcell.RuneVLine), style)
-		s.Put(x2, row, string(tcell.RuneVLine), style)
-	}
-
-	// Only draw corners if necessary
-	if y1 != y2 && x1 != x2 {
-		s.Put(x1, y1, string(tcell.RuneULCorner), style)
-		s.Put(x2, y1, string(tcell.RuneURCorner), style)
-		s.Put(x1, y2, string(tcell.RuneLLCorner), style)
-		s.Put(x2, y2, string(tcell.RuneLRCorner), style)
-	}
-
-	drawText(s, x1+1, y1+1, x2-1, y2-1, style, text)
-}
+var (
+	Easy   = Difficulty{9, 9, 10}
+	Medium = Difficulty{16, 16, 40}
+	Hard   = Difficulty{30, 16, 99}
+)
 
 func main() {
 	defStyle := tcell.StyleDefault.Background(color.Reset).Foreground(color.Reset)
-	boxStyle := tcell.StyleDefault.Foreground(color.White).Background(color.Purple)
 
 	// Initialize screen
 	s, err := tcell.NewScreen()
@@ -104,11 +53,13 @@ func main() {
 	// s.EventQ() <- tcell.NewEventKey(tcell.KeyRune, rune('a'), 0)
 
 	// Event loop
-	ox, oy := -1, -1
-	for {
-		// Update screen
-		s.Show()
+	grid := NewGrid(Easy.W, Easy.H, Easy.Mines)
+	const cellW, ox, oy = 2, 0, 0
 
+	DrawGrid(s, &grid)
+	s.Show()
+
+	for {
 		// Poll event (this can be in a select statement as well)
 		ev := <-s.EventQ()
 
@@ -116,26 +67,45 @@ func main() {
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
 			s.Sync()
+			s.Clear()
+			DrawGrid(s, &grid)
+			s.Show()
 		case *tcell.EventKey:
 			if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
 				return
 			} else if ev.Key() == tcell.KeyCtrlL {
 				s.Sync()
+				s.Clear()
+				DrawGrid(s, &grid)
+				s.Show()
 			}
 		case *tcell.EventMouse:
 			x, y := ev.Position()
+			b := ev.Buttons()
 
-			switch ev.Buttons() {
-			case tcell.Button1, tcell.Button2:
-				if ox < 0 {
-					ox, oy = x, y // record location when click started
+			bx := (x - ox) / cellW
+			by := y - oy
+			if by < 0 || by >= len(grid.Cells) || bx < 0 || (len(grid.Cells) > 0 && bx >= len(grid.Cells[0])) {
+				continue
+			}
+
+			if b&tcell.Button1 != 0 {
+				c := &grid.Cells[by][bx]
+				if c.State == Hidden {
+					c.State = Revealed
+					DrawCell(s, *c)
+					s.Show()
 				}
-
-			case tcell.ButtonNone:
-				if ox >= 0 {
-					label := fmt.Sprintf("%d,%d to %d,%d", ox, oy, x, y)
-					drawBox(s, ox, oy, x, y, boxStyle, label)
-					ox, oy = -1, -1
+			} else if b&tcell.Button2 != 0 {
+				c := &grid.Cells[by][bx]
+				if c.State == Hidden {
+					c.State = Flagged
+					DrawCell(s, *c)
+					s.Show()
+				} else if c.State == Flagged {
+					c.State = Hidden
+					DrawCell(s, *c)
+					s.Show()
 				}
 			}
 		}

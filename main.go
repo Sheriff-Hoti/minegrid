@@ -79,12 +79,7 @@ func main() {
 	}
 	s.SetStyle(defStyle)
 	s.EnableMouse()
-	s.EnablePaste()
 	s.Clear()
-
-	// Draw initial boxes
-	drawBox(s, 1, 1, 42, 7, boxStyle, "Click and drag to draw a box")
-	drawBox(s, 5, 9, 32, 14, boxStyle, "Press C to reset")
 
 	quit := func() {
 		// You have to catch panics in a defer, clean up, and
@@ -126,8 +121,6 @@ func main() {
 				return
 			} else if ev.Key() == tcell.KeyCtrlL {
 				s.Sync()
-			} else if ev.Str() == "C" || ev.Str() == "c" {
-				s.Clear()
 			}
 		case *tcell.EventMouse:
 			x, y := ev.Position()

@@ -27,7 +27,7 @@ type Grid struct {
 	Cells [][]Cell
 }
 
-func (g *Grid) ForEachNeighbor(x, y int, fn func(*Cell)) {
+func (g *Grid) ForEachNeighbor(x, y int, fn func(nx, ny int, n *Cell)) {
 	if len(g.Cells) == 0 {
 		return
 	}
@@ -39,7 +39,7 @@ func (g *Grid) ForEachNeighbor(x, y int, fn func(*Cell)) {
 			}
 			nx, ny := x+dx, y+dy
 			if nx >= 0 && nx < W && ny >= 0 && ny < H {
-				fn(&g.Cells[ny][nx])
+				fn(nx, ny, &g.Cells[ny][nx])
 			}
 		}
 	}
@@ -71,7 +71,7 @@ func NewGrid(W, H, Mines int) Grid {
 		for x := 0; x < W; x++ {
 			if shouldPlaceMine(minesLeft, cellsLeft) {
 				cells[y][x].IsMine = true
-				grid.ForEachNeighbor(x, y, func(n *Cell) {
+				grid.ForEachNeighbor(x, y, func(_, _ int, n *Cell) {
 					n.MinesAround++
 				})
 				minesLeft--
@@ -123,4 +123,23 @@ func DrawCell(s tcell.Screen, c Cell, x, y int) {
 	}
 
 	s.Put(sx, sy, text, style)
+}
+
+// Reveal floods from a Hidden zero cell. Caller checks IsMine/MinesAround.
+func (g *Grid) Reveal(x, y int) [][2]int {
+	c := &g.Cells[y][x]
+	c.State = Revealed
+	changed := [][2]int{{x, y}}
+	g.ForEachNeighbor(x, y, func(nx, ny int, n *Cell) {
+		if n.State != Hidden || n.IsMine {
+			return
+		}
+		if n.MinesAround > 0 {
+			n.State = Revealed
+			changed = append(changed, [2]int{nx, ny})
+			return
+		}
+		changed = append(changed, g.Reveal(nx, ny)...)
+	})
+	return changed
 }

@@ -91,11 +91,20 @@ func main() {
 
 			if b&tcell.Button1 != 0 {
 				c := &grid.Cells[by][bx]
-				if c.State == Hidden {
-					c.State = Revealed
-					DrawCell(s, *c, bx, by)
-					s.Show()
+				if c.State != Hidden {
+					continue
 				}
+				var changed [][2]int
+				if c.IsMine || c.MinesAround > 0 {
+					c.State = Revealed
+					changed = [][2]int{{bx, by}}
+				} else {
+					changed = grid.Reveal(bx, by)
+				}
+				for _, p := range changed {
+					DrawCell(s, grid.Cells[p[1]][p[0]], p[0], p[1])
+				}
+				s.Show()
 			} else if b&tcell.Button2 != 0 {
 				c := &grid.Cells[by][bx]
 				if c.State == Hidden {

@@ -93,18 +93,18 @@ func main() {
 				c := &grid.Cells[by][bx]
 				if c.State == Hidden {
 					c.State = Revealed
-					DrawCell(s, *c)
+					DrawCell(s, *c, bx, by)
 					s.Show()
 				}
 			} else if b&tcell.Button2 != 0 {
 				c := &grid.Cells[by][bx]
 				if c.State == Hidden {
 					c.State = Flagged
-					DrawCell(s, *c)
+					DrawCell(s, *c, bx, by)
 					s.Show()
 				} else if c.State == Flagged {
 					c.State = Hidden
-					DrawCell(s, *c)
+					DrawCell(s, *c, bx, by)
 					s.Show()
 				}
 			}
